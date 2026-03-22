@@ -1,6 +1,9 @@
 #include "dfs.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <utime.h>
 
 int32_t cdfs_put(const char *local_path, const char *cdfs_path) {
     // static int32_t global_chunk_id = 0;
@@ -9,12 +12,18 @@ int32_t cdfs_put(const char *local_path, const char *cdfs_path) {
     if(!fp){
         return -1;
     }
+
+    struct stat st;
+    if (stat(local_path, &st) != 0) {
+        fclose(fp);
+        return -1;
+    }
     
     uint8_t buffer[CHUNK_SIZE];
     chunk_info_t chunks[MAX_CHUNKS];
     int32_t chunk_count = 0;
 
-    while (1) {
+    while (1){
         size_t bytes = fread(buffer, 1, CHUNK_SIZE, fp);
         if(bytes == 0){
             if(feof(fp)){
@@ -42,7 +51,11 @@ int32_t cdfs_put(const char *local_path, const char *cdfs_path) {
     }
     fclose(fp);
 
-    if(register_file(cdfs_path, chunks, chunk_count) != 0){
+    if(register_file(cdfs_path, chunks, chunk_count,
+                     (uint32_t)st.st_mode,
+                     (int64_t)st.st_ctime,
+                     (int64_t)st.st_mtime,
+                     (uint64_t)st.st_size) != 0){
         return -1;
     }
     return 0;
@@ -73,5 +86,18 @@ int32_t cdfs_get(const char *cdfs_path, const char *local_path) {
         fwrite(buffer, 1, bytes_read, fp);
     }
     fclose(fp);
+
+    if(chmod(local_path, (int)(metadata.file_mode & 0777U)) != 0){// used to change file permissions, we mask with 0777 to get only the permission bits
+        return -1;
+    }
+    // !!!!! chmod restores permissions,utime restores timestamps !!!!!
+    
+    struct utimbuf times;//used to set file access and modification times
+    times.actime = (time_t)metadata.modified_at;
+    times.modtime = (time_t)metadata.modified_at;
+    if(utime(local_path, &times) != 0){
+        return -1;
+    }
+
     return 0;
 }

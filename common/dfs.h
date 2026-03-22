@@ -18,10 +18,13 @@ typedef struct {
 
 typedef struct {
     char filename[MAX_FILENAME];
+    uint32_t file_mode;
+    int64_t created_at;
+    int64_t modified_at;
+    uint64_t file_size;
     int32_t chunk_count;
     chunk_info_t chunks[MAX_CHUNKS];
 }file_metadata_t;
-//future work - add file permissions, timestamps, file size. to file_metadata_t
 //adv future work - replica, deletion tag, duplicate filename prevention,
 
 // Storage layer api
@@ -29,7 +32,9 @@ int32_t store_chunk(const uint8_t *data,size_t size);//stores chunk to disk
 int32_t load_chunk(int32_t chunk_id, uint8_t *buffer, size_t buffer_size,size_t *bytes_read);//buffer is a block of memory where the chunk data will be loaded (copied) into. buffer = array of bytes
 
 // Metadata layer api
-int32_t register_file(const char *filename,chunk_info_t* chunks, int32_t chunk_count);
+int32_t register_file(const char *filename, const chunk_info_t *chunks, int32_t chunk_count,
+                      uint32_t file_mode, int64_t created_at, int64_t modified_at,
+                      uint64_t file_size);
 int32_t get_file_metadata(const char *filename, file_metadata_t *out);
 
 // Client API
